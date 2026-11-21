@@ -120,6 +120,60 @@ h1 {
       margin-top: 25px;
     }
 
+    #showWishlistEntriesButton {
+      display: block;
+      width: 100%;
+      margin-top: 12px;
+      background: #376E9D;
+      color: #fff;
+    }
+
+    #showWishlistEntriesButton:hover:not(:disabled) {
+      background: #28567e;
+    }
+
+    #wishlistEntries {
+      display: none;
+      margin-top: 22px;
+      text-align: left;
+    }
+
+    #wishlistEntries.show {
+      display: block;
+    }
+
+    .wishlist-entry-card {
+      margin-top: 12px;
+      padding: 18px;
+      border: 1px solid #e3ddd5;
+      border-radius: 12px;
+      background: #fff;
+    }
+
+    .wishlist-entry-card h3 {
+      margin: 0 0 12px;
+      color: #376E9D;
+      font-size: 1.05em;
+    }
+
+    .wishlist-entry-card p {
+      margin: 8px 0 0;
+      color: #444;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+
+    .wishlist-entry-card strong {
+      color: #BA1E3C;
+    }
+
+    #wishlistEntriesStatus {
+      margin: 12px 0 0;
+      color: #555;
+      text-align: center;
+      font-size: .9em;
+    }
+
     button {
       border: 0;
       border-radius: 9px;
@@ -417,6 +471,16 @@ h1 {
         </button>
       </div>
     </form>
+
+    <button type="button" id="showWishlistEntriesButton">
+      Show Wishlist Entries
+    </button>
+
+    <section id="wishlistEntries" aria-live="polite" aria-label="Submitted wishlist entries">
+      <h2 style="margin:0;text-align:center;color:#376E9D;font-size:1.35em;">Wishlist Entries</h2>
+      <p id="wishlistEntriesStatus" role="status">Click the button to load submitted entries.</p>
+      <div id="wishlistEntriesList"></div>
+    </section>
   </main>
 
   <!-- General submission and duplicate warning modal -->
@@ -481,6 +545,14 @@ h1 {
     const submitButton = document.getElementById("submitButton");
     const editWishlistButton =
       document.getElementById("editWishlistButton");
+    const showWishlistEntriesButton =
+      document.getElementById("showWishlistEntriesButton");
+    const wishlistEntries =
+      document.getElementById("wishlistEntries");
+    const wishlistEntriesList =
+      document.getElementById("wishlistEntriesList");
+    const wishlistEntriesStatus =
+      document.getElementById("wishlistEntriesStatus");
 
     const modal = document.getElementById("modal");
     const modalContent = document.getElementById("modalContent");
@@ -572,6 +644,118 @@ h1 {
         document.body.appendChild(script);
       });
     }
+
+    // Load all submitted wishlist records through the Apps Script JSONP endpoint.
+    function loadAllWishlistEntries() {
+      return new Promise((resolve, reject) => {
+        const callbackName =
+          "wishlistListCallback_" +
+          Date.now() +
+          "_" +
+          Math.random().toString(36).slice(2);
+
+        const script = document.createElement("script");
+        const params = new URLSearchParams({
+          action: "list",
+          callback: callbackName
+        });
+
+        let finished = false;
+
+        const timeout = setTimeout(() => {
+          cleanup();
+          reject(new Error("The request timed out. Please try again."));
+        }, 15000);
+
+        function cleanup() {
+          if (finished) return;
+          finished = true;
+          clearTimeout(timeout);
+          delete window[callbackName];
+          script.remove();
+        }
+
+        window[callbackName] = (data) => {
+          cleanup();
+          resolve(data);
+        };
+
+        script.onerror = () => {
+          cleanup();
+          reject(new Error("Unable to contact the wishlist service."));
+        };
+
+        script.src = scriptURL + "?" + params.toString();
+        document.body.appendChild(script);
+      });
+    }
+
+    function renderWishlistEntries(entries) {
+      wishlistEntriesList.replaceChildren();
+
+      if (!Array.isArray(entries) || entries.length === 0) {
+        wishlistEntriesStatus.textContent = "No wishlist entries have been submitted yet.";
+        return;
+      }
+
+      entries.forEach((entry) => {
+        const card = document.createElement("article");
+        card.className = "wishlist-entry-card";
+
+        const name = document.createElement("h3");
+        name.textContent = entry.realName || entry.name || "Unnamed participant";
+        card.appendChild(name);
+
+        [
+          ["Wishlist Entry #1", entry.wish1],
+          ["Wishlist Entry #2", entry.wish2],
+          ["Wishlist Entry #3", entry.wish3]
+        ].forEach(([label, value]) => {
+          if (!value || !String(value).trim()) return;
+
+          const line = document.createElement("p");
+          const strong = document.createElement("strong");
+          strong.textContent = label + ": ";
+          line.append(strong, document.createTextNode(String(value)));
+          card.appendChild(line);
+        });
+
+        wishlistEntriesList.appendChild(card);
+      });
+
+      wishlistEntriesStatus.textContent =
+        entries.length + (entries.length === 1 ? " participant" : " participants");
+    }
+
+    showWishlistEntriesButton.addEventListener("click", async () => {
+      const isVisible = wishlistEntries.classList.toggle("show");
+
+      if (!isVisible) {
+        showWishlistEntriesButton.textContent = "Show Wishlist Entries";
+        return;
+      }
+
+      showWishlistEntriesButton.textContent = "Hide Wishlist Entries";
+      showWishlistEntriesButton.disabled = true;
+      wishlistEntriesStatus.textContent = "Loading wishlist entries...";
+      wishlistEntriesList.replaceChildren();
+
+      try {
+        const result = await loadAllWishlistEntries();
+
+        if (!result || !result.ok) {
+          throw new Error(result?.message || "The wishlist service could not return the entries.");
+        }
+
+        renderWishlistEntries(result.entries || result.wishlists || result.data || []);
+      } catch (error) {
+        console.error(error);
+        wishlistEntriesStatus.textContent =
+          error.message || "Unable to load wishlist entries. Please try again.";
+      } finally {
+        showWishlistEntriesButton.disabled = false;
+      }
+    });
 
     // Load a retrieved wishlist into the homepage form.
     function loadWishlistIntoForm(wishlist) {
