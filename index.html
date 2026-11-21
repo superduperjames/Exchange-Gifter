@@ -201,6 +201,26 @@ h1 {
       transform: none;
     }
 
+    .wishlist-entry-actions {
+      display: flex;
+      gap: 14px;
+      align-items: center;
+    }
+
+    .wishlist-copy-button {
+      margin-top: 4px;
+      padding: 2px 0;
+      background: transparent;
+      color: #BA1E3C;
+      font-size: .8em;
+      font-weight: 600;
+    }
+
+    .wishlist-copy-button:hover:not(:disabled) {
+      text-decoration: underline;
+      transform: none;
+    }
+
     #wishlistEntriesStatus {
       margin: 12px 0 0;
       color: #555;
@@ -759,6 +779,9 @@ h1 {
           entryText.textContent = String(value);
           entryText.title = String(value);
 
+          const actions = document.createElement("div");
+          actions.className = "wishlist-entry-actions";
+
           const expandButton = document.createElement("button");
           expandButton.type = "button";
           expandButton.className = "wishlist-expand-button";
@@ -768,7 +791,25 @@ h1 {
             expandButton.textContent = expanded ? "Show less" : "Show more";
           });
 
-          item.append(entryLabel, entryText, expandButton);
+          const copyButton = document.createElement("button");
+          copyButton.type = "button";
+          copyButton.className = "wishlist-copy-button";
+          copyButton.textContent = "Copy";
+          copyButton.addEventListener("click", async () => {
+            try {
+              await navigator.clipboard.writeText(String(value));
+              copyButton.textContent = "Copied!";
+            } catch (error) {
+              copyButton.textContent = "Select text to copy";
+            }
+
+            setTimeout(() => {
+              copyButton.textContent = "Copy";
+            }, 1800);
+          });
+
+          actions.append(expandButton, copyButton);
+          item.append(entryLabel, entryText, actions);
           card.appendChild(item);
         });
 
