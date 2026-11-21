@@ -156,15 +156,49 @@ h1 {
       font-size: 1.05em;
     }
 
-    .wishlist-entry-card p {
-      margin: 8px 0 0;
+    .wishlist-entry-item {
+      margin-top: 12px;
+    }
+
+    .wishlist-entry-label {
+      display: block;
+      margin-bottom: 3px;
+      color: #BA1E3C;
+      font-weight: 700;
+    }
+
+    .wishlist-entry-text {
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+      line-clamp: 2;
+      overflow: hidden;
+      margin: 0;
       color: #444;
       line-height: 1.5;
       overflow-wrap: anywhere;
+      user-select: text;
+      -webkit-user-select: text;
+      cursor: text;
     }
 
-    .wishlist-entry-card strong {
-      color: #BA1E3C;
+    .wishlist-entry-text.expanded {
+      display: block;
+      overflow: visible;
+    }
+
+    .wishlist-expand-button {
+      margin-top: 4px;
+      padding: 2px 0;
+      background: transparent;
+      color: #376E9D;
+      font-size: .8em;
+      font-weight: 600;
+    }
+
+    .wishlist-expand-button:hover:not(:disabled) {
+      text-decoration: underline;
+      transform: none;
     }
 
     #wishlistEntriesStatus {
@@ -713,11 +747,29 @@ h1 {
         ].forEach(([label, value]) => {
           if (!value || !String(value).trim()) return;
 
-          const line = document.createElement("p");
-          const strong = document.createElement("strong");
-          strong.textContent = label + ": ";
-          line.append(strong, document.createTextNode(String(value)));
-          card.appendChild(line);
+          const item = document.createElement("div");
+          item.className = "wishlist-entry-item";
+
+          const entryLabel = document.createElement("span");
+          entryLabel.className = "wishlist-entry-label";
+          entryLabel.textContent = label;
+
+          const entryText = document.createElement("p");
+          entryText.className = "wishlist-entry-text";
+          entryText.textContent = String(value);
+          entryText.title = String(value);
+
+          const expandButton = document.createElement("button");
+          expandButton.type = "button";
+          expandButton.className = "wishlist-expand-button";
+          expandButton.textContent = "Show more";
+          expandButton.addEventListener("click", () => {
+            const expanded = entryText.classList.toggle("expanded");
+            expandButton.textContent = expanded ? "Show less" : "Show more";
+          });
+
+          item.append(entryLabel, entryText, expandButton);
+          card.appendChild(item);
         });
 
         wishlistEntriesList.appendChild(card);
